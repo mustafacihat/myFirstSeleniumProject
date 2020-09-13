@@ -1,14 +1,22 @@
 package tests;
 
+import com.aventstack.extentreports.ExtentReports;
+import com.aventstack.extentreports.ExtentTest;
+import com.aventstack.extentreports.reporter.ExtentHtmlReporter;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.ITestResult;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
+import utilities.BrowserUtils;
 import utilities.ConfigurationReader;
 import utilities.Driver;
 
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public class TestBase {
@@ -16,6 +24,29 @@ public class TestBase {
     protected WebDriver driver;
     protected Actions actions;
     protected WebDriverWait wait;
+    protected ExtentReports report;
+    protected ExtentHtmlReporter htmlReporter;
+    protected ExtentTest extentLogger;
+
+
+
+    @BeforeTest
+    public void setUpTest(){
+        report = new ExtentReports();
+
+        String projectPath = System.getProperty("user.dir");
+        String path = projectPath+"/test-output/report.html";
+
+        htmlReporter = new ExtentHtmlReporter(path);
+        report.attachReporter(htmlReporter);
+
+        htmlReporter.config().setReportName("Vytrack Smoke Test");
+
+        report.setSystemInfo("Environment","QA");
+        report.setSystemInfo("Browser",ConfigurationReader.get("browser"));
+        report.setSystemInfo("OS",System.getProperty("os.name"));
+
+    }
 
     @BeforeMethod
     public void setUpMethod() {
@@ -29,8 +60,28 @@ public class TestBase {
     }
 
     @AfterMethod
-    public void afterMethod() throws InterruptedException {
+    public void afterMethod(ITestResult result) throws InterruptedException, IOException {
+        //if test failed
+        if (result.getStatus()==ITestResult.FAILURE){
+            //record the name of the failed test case
+            extentLogger.fail(result.getName());
+            //take the screenshot and return of screenshot
+            String screenShotPath= BrowserUtils.getScreenshot(result.getName());
+
+            //add your screenshot to your report
+            extentLogger.addScreenCaptureFromPath(screenShotPath);
+
+            //capture the exception and put inside the report
+            extentLogger.fail(result.getThrowable());
+        }
+
         Thread.sleep(4000);
         Driver.closeDriver();
+    }
+
+
+    @AfterTest
+    public void tearDownTest(){
+        report.flush();
     }
 }
